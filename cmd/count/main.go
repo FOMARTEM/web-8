@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strconv"
 
 	_ "github.com/lib/pq"
 )
@@ -27,22 +28,26 @@ type DatabaseProvider struct {
 	db *sql.DB
 }
 
-// Обработчики HTTP-запросов
-func (h *Handlers) GetHello(w http.ResponseWriter, r *http.Request) {
-	msg, err := h.dbProvider.SelectHello()
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte(err.Error()))
-	}
+// Обработчик HTTP-запросов
+func (h *Handlers) Count(w http.ResponseWriter, r *http.Request) {
+	if r.Method == "GET" {
+		msg, err := h.dbProvider.SelectCount()
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			w.Write([]byte(err.Error()))
+		}
 
-	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(msg))
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(strconv.Itoa(msg)))
+	} else {
+		h.PostCount(w, r)
+	}
 }
 
-// обработчик пост запросов
-func (h *Handlers) PostHello(w http.ResponseWriter, r *http.Request) {
+// обработчик пост
+func (h *Handlers) PostCount(w http.ResponseWriter, r *http.Request) {
 	input := struct {
-		Msg string `json:"msg"`
+		Count int `json:"count"`
 	}{}
 
 	decoder := json.NewDecoder(r.Body)
@@ -54,33 +59,32 @@ func (h *Handlers) PostHello(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	err = h.dbProvider.InsertHello(input.Msg)
+	err = h.dbProvider.UpdateCount(input.Count)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte(err.Error()))
 	}
-
 	w.WriteHeader(http.StatusCreated)
 }
 
 // Методы для работы с базой данных
 // селект
-func (dp *DatabaseProvider) SelectHello() (string, error) {
-	var msg string
+func (dp *DatabaseProvider) SelectCount() (int, error) {
+	var msg int
 
 	// Получаем одно сообщение из таблицы hello, отсортированной в случайном порядке
-	row := dp.db.QueryRow("SELECT message FROM hello ORDER BY RANDOM() LIMIT 1")
+	row := dp.db.QueryRow("SELECT number FROM counts")
 	err := row.Scan(&msg)
 	if err != nil {
-		return "", err
+		return 0, err
 	}
 
 	return msg, nil
 }
 
-// инсёрт
-func (dp *DatabaseProvider) InsertHello(msg string) error {
-	_, err := dp.db.Exec("INSERT INTO hello (message) VALUES ($1)", msg)
+// апдейт
+func (dp *DatabaseProvider) UpdateCount(number int) error {
+	_, err := dp.db.Exec("UPDATE counts SET number = number + $1", number)
 	if err != nil {
 		return err
 	}
@@ -111,8 +115,7 @@ func main() {
 	h := Handlers{dbProvider: dp}
 
 	// Регистрируем обработчики
-	http.HandleFunc("/get", h.GetHello)
-	http.HandleFunc("/post", h.PostHello)
+	http.HandleFunc("/count", h.Count)
 
 	// Запускаем веб-сервер на указанном адресе
 	err = http.ListenAndServe(*address, nil)
