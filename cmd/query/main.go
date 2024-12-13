@@ -34,7 +34,7 @@ func (h *Handlers) GreetGet(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	msg, err := h.dbProvider.SelectName(name)
-	if msg == false {
+	if !msg {
 		fmt.Fprint(w, "Such user does not exist!")
 		return
 	}
