@@ -73,6 +73,7 @@ func (dp *DatabaseProvider) SelectName(name string) (bool, error) {
 	}
 	return true, nil
 }
+
 func (dp *DatabaseProvider) InsertName(msg string) error {
 	_, err := dp.db.Exec("INSERT INTO usernames (name) VALUES ($1)", msg)
 	if err != nil {
